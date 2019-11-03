@@ -1,4 +1,3 @@
-# load libraries
 from __future__ import absolute_import, division, print_function, unicode_literals
 import tensorflow as tf
 import tensorflow_datasets as tfds
@@ -9,6 +8,7 @@ import matplotlib.cm as cm
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
 from matplotlib import animation
+from IPython.display import HTML
 from tensorflow.python.framework import tensor_shape
 from tensorflow.python.keras import activations
 from tensorflow.python.ops import gen_array_ops, nn
@@ -19,11 +19,16 @@ import cv2
 from tensorflow.python.ops.parallel_for.gradients import jacobian
 from tensorflow.keras import losses as kloss
 from tensorflow.keras import Model
-import tensorflow_datasets as tfds
-
 
 tf.compat.v1.enable_eager_execution()
+config = tf.compat.v1.ConfigProto()
+config.gpu_options.allow_growth = True
+sess = tf.compat.v1.Session(config=config)
 
+# class AutoEncoder(Model):
+#     def __init__(self):
+#         super(AutoEncoder, self).__init__()
+        
 class InterpretableNetwork(Model):
     def __init__(self, input_shape):
         super(InterpretableNetwork, self).__init__()
@@ -137,12 +142,12 @@ class InterpretableNetwork(Model):
         out = self.classifier_d1(weighted_concepts)
         out = self.classifier_d2(out)
         
-        return x, concepts, out
+        return x, concepts, out       
 
 
 model = InterpretableNetwork(input_shape=(28, 28))
 model.build((None, 28, 28, 1))
-
+model.summary()
 @tf.function
 def getGrad1(image):
     with tf.GradientTape(persistent=True) as tape:
@@ -157,7 +162,7 @@ def getGrad2(image):
         x, concepts, _ = model.helper(image)
     gradients = jacobian(concepts, x)
     return gradients
-
+    
 @tf.function
 def RobustnessLoss(image, weights):
     a = getGrad1(image)
@@ -174,15 +179,12 @@ def RobustnessLoss(image, weights):
 def reconstruction_loss(y_true, y_pred):
     return tf.keras.backend.mean(tf.keras.losses.mean_squared_error(y_true, y_pred))
 
-dataset = tfds.load(name="mnist", split=tfds.Split.TRAIN)
-
 classification_loss = kloss.SparseCategoricalCrossentropy()
 train_reconstruction = tf.keras.metrics.Mean(name='reconstruction')
 train_loss = tf.keras.metrics.Mean(name='train_loss')
 train_rob = tf.keras.metrics.Mean(name='train_rob')
 train_accuracy = tf.keras.metrics.SparseCategoricalAccuracy(name='train_accuracy')
 optimizer = tf.keras.optimizers.Adam()
-
 
 @tf.function
 def train_step(image, labels):
@@ -199,6 +201,9 @@ def train_step(image, labels):
     train_rob(loss_rob)
     train_accuracy(labels, prediction)
 
+import tensorflow_datasets as tfds
+dataset = tfds.load(name="mnist", split=tfds.Split.TRAIN)
+dataset = dataset.shuffle(1024).batch(32).prefetch(tf.data.experimental.AUTOTUNE)
 EPOCHS = 1000
 
 for epoch in range(EPOCHS):
