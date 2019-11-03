@@ -9,7 +9,6 @@ import matplotlib.cm as cm
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
 from matplotlib import animation
-from IPython.display import HTML
 from tensorflow.python.framework import tensor_shape
 from tensorflow.python.keras import activations
 from tensorflow.python.ops import gen_array_ops, nn
